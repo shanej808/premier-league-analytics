@@ -17,14 +17,37 @@ Historical match results and odds come from
 [football-data.co.uk](https://www.football-data.co.uk/englandm.php)
 (English Premier League, `E0`).
 
+`www.football-data.co.uk` is not reachable from this project's default
+dev sandbox (blocked by network policy), so instead of fetching over
+HTTP at runtime, the three current season files were downloaded
+manually and committed as a one-off drop:
+
+- `data/raw/E0_2022-23.csv`
+- `data/raw/E0_2023-24.csv`
+- `data/raw/E0_2024-25.csv`
+
+`data/raw/` is gitignored by default (for any future ad hoc downloads),
+with an explicit exception carved out for these `E0_*.csv` files so
+they stay checked in. If you have unrestricted network access, you can
+instead re-fetch a season directly with:
+
+```python
+import pandas as pd
+pd.read_csv("https://www.football-data.co.uk/mmz4281/2425/E0.csv").to_csv("data/raw/E0_2024-25.csv", index=False)
+```
+
 ```bash
 cd src
 python ingest_historical.py
 ```
 
-This downloads season CSVs for `2223`, `2324`, and `2425`, and loads
-them into `raw_matches` in a local DuckDB file (`premier_league.duckdb`
-at the repo root). Run `python db.py` to inspect the schema/tables.
+This loads `raw_matches` from the local season CSVs (`2223`, `2324`,
+`2425`) into a local DuckDB file (`premier_league.duckdb` at the repo
+root), including Bet365 (`B365H/D/A`) odds. Run `python db.py` to
+inspect the schema/tables. `schema.sql`'s `odds` table additionally
+captures Pinnacle (`psh/psd/psa`) and market-average (`avgh/avgd/avga`)
+odds, which are present in all three season files, for future use once
+match/team normalization is wired up.
 
 `src/api_client.py` is a stub for a future API-Football integration
 and isn't wired into the pipeline yet.
