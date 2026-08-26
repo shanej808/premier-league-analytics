@@ -31,7 +31,11 @@ Record of significant decisions made during development, why they were made, and
 
 **Why:** Rather than trying to get the sandbox's network policy changed (not practical for a one-off check), running the script locally once — on a machine with unrestricted internet access — was the fastest path to a genuine proof-of-connectivity, without compromising the cloud-first workflow for everything else.
 
-**Result:** `/status` endpoint confirmed a valid, active free-tier API key. `/fixtures` with `next=N` returned 0 results for the current Premier League season — under investigation as of last update, likely either a free-tier restriction on current-season data for major leagues, or a parameter issue (league ID / season format). Not yet resolved.
+**Result:** `/status` confirmed a valid, active free-tier API key. `/fixtures` with `next=N` initially returned 0 results with no error — traced through a systematic diagnostic process (raw response inspection, then a control query against a known-good past season) to a definitive root cause: **`next` is a paid-only parameter**, confirmed directly by the API's own error message (`"Free plans do not have access to the Next parameter"`). Not a bug in query construction — league ID and season logic were both correct throughout.
+
+**Fix:** Removed `next` entirely; current-fixtures logic switched to `status=NS` (not-started), filtered/sorted client-side. Running this surfaced a second, distinct free-plan restriction: **the free tier has no access to the current season's fixtures at all** — only 2022–2024 (confirmed via the API's error message: `"Free plans do not have access to this season, try from 2022 to 2024"`).
+
+**Resolution:** Verified end-to-end success against `season=2024` (within the allowed range) — real fixture data returned cleanly. This is the final proof of connectivity. Live current-season fixtures remain unavailable until/unless upgrading to a paid API-Football plan; documented as a known limitation in the README rather than something to keep debugging.
 
 ---
 
@@ -47,7 +51,8 @@ Record of significant decisions made during development, why they were made, and
 - **Claude Code web branches, then opens a PR** — files added directly to `main` (e.g. the manual CSV drop) don't automatically appear on an in-progress branch; requires merging `main` into the branch first.
 - **PR descriptions can go stale mid-session** — caught twice: the network note and the test plan both described an earlier version of the pipeline after the underlying code had changed. Always re-verify PR description against the *current* state of the code before merging, not just the state when the PR was first opened.
 - **Nothing merged to `main` until:** the PR description accurately reflects current behaviour, the relevant script has been re-run and verified against the latest changes (not an earlier commit), secrets/`.env` handling has been checked, and the diff has been read end-to-end.
+- **Debug via direct evidence, not speculation:** when the API-Football fixtures issue surfaced, the productive path was inspecting raw responses and running a controlled comparison (a known-good past season vs. the failing current-season query) rather than guessing at causes. Refusing to state an unconfirmed theory ("probably a free-tier restriction") as fact, and instead building a test that would prove or disprove it, got to a definitive answer faster than continued guessing would have.
 
 ---
 
-*Last updated: 26 August 2026 — Phase 1 in progress, pending API-Football fixtures resolution and final PR review.*
+*Last updated: 26 August 2026 — Phase 1 substantively complete: ingest, odds, and API-Football connectivity all verified end-to-end. Pending: Qodo review pass and final PR read-through before merge.*
