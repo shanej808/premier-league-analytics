@@ -49,12 +49,16 @@ class APIFootballClient:
     def get_current_pl_fixtures(self, next_n: int = 10) -> dict:
         """Next N upcoming Premier League fixtures.
 
-        Confirmed via a live call that the `next` parameter is a paid-only
-        feature -- the free plan's /fixtures response for `next=5` came back
-        with errors: {"plan": "Free plans do not have access to the Next
-        parameter."}. So instead of `next`, this fetches the current
-        season's not-yet-started fixtures (status=NS) and returns the
-        earliest N by kickoff date, which works on the free plan.
+        NOTE: requires a paid API-Football plan. Confirmed via live calls
+        on a Free-plan key that:
+        1. The `next` parameter is paid-only (errors: {"plan": "Free plans
+           do not have access to the Next parameter."}).
+        2. Even without `next`, the Free plan only covers the 2022-2024
+           seasons -- the actual current season (see current_pl_season())
+           isn't in that range, so this will come back empty regardless.
+        Left implemented for when the plan is upgraded; get_season_fixtures
+        with an in-range season (e.g. 2024) is the free-plan-compatible
+        call for now -- see api_client.py's __main__ block.
         """
         data = self.get_season_fixtures(status="NS")
         upcoming = sorted(data.get("response", []), key=lambda f: f["fixture"]["date"])
@@ -79,14 +83,18 @@ if __name__ == "__main__":
     print("GET /status -> full raw response:")
     print(json.dumps(status, indent=2))
 
-    print("\nFetching current Premier League fixtures (status=NS, free-plan compatible)...")
-    fixtures = client.get_current_pl_fixtures(next_n=5)
+    # Confirmed live: the current (2026-27) season is outside the Free
+    # plan's covered range (2022-2024), so a real, non-empty connectivity
+    # proof on this plan means fetching an in-range season instead of the
+    # live one. 2024 is the most recent season the Free plan covers.
+    print("\nFetching 2024 Premier League fixtures (in-range for the Free plan)...")
+    fixtures = client.get_season_fixtures(season=2024)
 
     print("\n--- summary ---")
     print("league requested:", PREMIER_LEAGUE_ID)
     print("errors:", fixtures.get("errors"))
     print("results:", fixtures.get("results"))
 
-    for f in fixtures.get("response", []):
+    for f in fixtures.get("response", [])[:5]:
         teams = f["teams"]
         print(f"  {f['fixture']['date']}: {teams['home']['name']} vs {teams['away']['name']}")

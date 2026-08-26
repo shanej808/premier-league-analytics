@@ -49,8 +49,28 @@ captures Pinnacle (`psh/psd/psa`) and market-average (`avgh/avgd/avga`)
 odds, which are present in all three season files, for future use once
 match/team normalization is wired up.
 
-`src/api_client.py` is a stub for a future API-Football integration
-and isn't wired into the pipeline yet.
+## Live data (API-Football)
+
+`src/api_client.py` wraps the [API-Football](https://www.api-football.com/)
+v3 REST API for live/current-season data (fixtures, standings, etc.).
+It's not wired into the DuckDB pipeline yet -- historical results and
+odds still come from the CSVs above.
+
+**Live current-season fixtures require a paid API-Football plan.**
+Confirmed against a real Free-plan key:
+- The `next` parameter (used to fetch "next N upcoming fixtures") is
+  paid-only -- the API returns `errors: {"plan": "Free plans do not
+  have access to the Next parameter."}`.
+- Even without `next`, the Free plan only covers the **2022-2024**
+  seasons. The actual current season is out of range, so any query for
+  it comes back empty regardless of which parameters are used.
+
+`client.get_season_fixtures(season=2024)` (or 2022/2023) is the
+Free-plan-compatible call and is what `api_client.py`'s `__main__`
+block demonstrates -- run `python src/api_client.py` (with
+`API_FOOTBALL_KEY` set in `.env`) to see it return real fixture data
+end-to-end. `get_current_pl_fixtures` is implemented and correct but
+will return nothing until the plan is upgraded.
 
 ## Notebooks
 
@@ -70,7 +90,7 @@ premier-league-analytics/
 │   ├── db.py                 # DuckDB connection + schema setup
 │   ├── schema.sql            # table definitions
 │   ├── ingest_historical.py  # football-data.co.uk CSV loader
-│   └── api_client.py         # API-Football wrapper (stub for now, not used yet)
+│   └── api_client.py         # API-Football wrapper (Free plan: 2022-2024 seasons only)
 └── notebooks/
     └── sanity_check.ipynb    # top scorers, home win %, goals trend
 ```
