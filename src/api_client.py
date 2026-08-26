@@ -49,12 +49,18 @@ class APIFootballClient:
     def get_current_pl_fixtures(self, next_n: int = 10) -> dict:
         """Next N upcoming Premier League fixtures.
 
-        `next` is already forward-looking from today, so no `season` is
-        passed here -- combining the two adds an extra param (a computed
-        season year) that isn't needed and can conflict with how the API
-        resolves "current" fixtures, e.g. around the season-boundary month.
+        Confirmed via a live call that the `next` parameter is a paid-only
+        feature -- the free plan's /fixtures response for `next=5` came back
+        with errors: {"plan": "Free plans do not have access to the Next
+        parameter."}. So instead of `next`, this fetches the current
+        season's not-yet-started fixtures (status=NS) and returns the
+        earliest N by kickoff date, which works on the free plan.
         """
-        return self.get_fixtures(next=next_n)
+        data = self.get_season_fixtures(status="NS")
+        upcoming = sorted(data.get("response", []), key=lambda f: f["fixture"]["date"])
+        data["response"] = upcoming[:next_n]
+        data["results"] = len(data["response"])
+        return data
 
 
 def current_pl_season() -> int:
@@ -73,29 +79,14 @@ if __name__ == "__main__":
     print("GET /status -> full raw response:")
     print(json.dumps(status, indent=2))
 
-    print("\nFetching current Premier League fixtures (next=5, no season)...")
+    print("\nFetching current Premier League fixtures (status=NS, free-plan compatible)...")
     fixtures = client.get_current_pl_fixtures(next_n=5)
-
-    print("\nFull raw response:")
-    print(json.dumps(fixtures, indent=2))
 
     print("\n--- summary ---")
     print("league requested:", PREMIER_LEAGUE_ID)
-    print("get:", fixtures.get("get"))
-    print("parameters echoed back by API:", fixtures.get("parameters"))
     print("errors:", fixtures.get("errors"))
     print("results:", fixtures.get("results"))
-    print("paging:", fixtures.get("paging"))
 
     for f in fixtures.get("response", []):
         teams = f["teams"]
         print(f"  {f['fixture']['date']}: {teams['home']['name']} vs {teams['away']['name']}")
-
-    # Diagnostic: query a season that's definitely over (not "current"/live) to
-    # tell apart "free plan doesn't cover live/current-season fixtures" from
-    # "something is broken regardless of season." If this comes back non-zero
-    # while the current-season query above is empty, that's a plan/coverage
-    # restriction on current-season data, not a bug in this client.
-    print("\nDiagnostic: fetching 2023 season fixtures (a season that's long over)...")
-    past = client.get_season_fixtures(season=2023)
-    print("errors:", past.get("errors"), "| results:", past.get("results"), "| paging:", past.get("paging"))
