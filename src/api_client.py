@@ -36,12 +36,23 @@ class APIFootballClient:
         """Cheap call to confirm the key is valid and check quota usage."""
         return self._get("/status")
 
-    def get_fixtures(self, league: int = PREMIER_LEAGUE_ID, season: int | None = None, **params) -> dict:
-        season = season or current_pl_season()
-        return self._get("/fixtures", league=league, season=season, **params)
+    def get_fixtures(self, league: int = PREMIER_LEAGUE_ID, **params) -> dict:
+        return self._get("/fixtures", league=league, **params)
+
+    def get_season_fixtures(self, season: int | None = None, **params) -> dict:
+        """All fixtures for a given Premier League season (defaults to the
+        current one). Use this when you actually need a season's full
+        schedule/results."""
+        return self.get_fixtures(season=season or current_pl_season(), **params)
 
     def get_current_pl_fixtures(self, next_n: int = 10) -> dict:
-        """Upcoming Premier League fixtures for the current season."""
+        """Next N upcoming Premier League fixtures.
+
+        `next` is already forward-looking from today, so no `season` is
+        passed here -- combining the two adds an extra param (a computed
+        season year) that isn't needed and can conflict with how the API
+        resolves "current" fixtures, e.g. around the season-boundary month.
+        """
         return self.get_fixtures(next=next_n)
 
 
@@ -62,8 +73,10 @@ if __name__ == "__main__":
 
     print("\nFetching current Premier League fixtures...")
     fixtures = client.get_current_pl_fixtures(next_n=5)
+    if fixtures.get("errors"):
+        print("API reported errors:", fixtures["errors"])
     results = fixtures.get("response", [])
-    print(f"GET /fixtures -> {len(results)} fixture(s) returned")
+    print(f"GET /fixtures -> {fixtures.get('results', len(results))} fixture(s) returned")
     for f in results:
         teams = f["teams"]
         print(f"  {f['fixture']['date']}: {teams['home']['name']} vs {teams['away']['name']}")
