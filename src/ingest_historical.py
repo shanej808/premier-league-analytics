@@ -31,6 +31,7 @@ def fetch_season(season: str) -> pd.DataFrame:
 
 def main():
     con = get_connection()
+    con.execute("DELETE FROM raw_matches")
     for season in SEASON_FILES:
         print(f"Loading {season}...")
         df = fetch_season(season)
