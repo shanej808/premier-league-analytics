@@ -6,11 +6,12 @@ ingest_historical.py. Nothing here is wired into the DuckDB pipeline
 yet; this just proves out connectivity and basic response handling.
 """
 
+import json
+import os
 from datetime import date
 
 import requests
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -69,14 +70,32 @@ if __name__ == "__main__":
 
     print("Checking API-Football connectivity...")
     status = client.get_status()
-    print("GET /status ->", status)
+    print("GET /status -> full raw response:")
+    print(json.dumps(status, indent=2))
 
-    print("\nFetching current Premier League fixtures...")
+    print("\nFetching current Premier League fixtures (next=5, no season)...")
     fixtures = client.get_current_pl_fixtures(next_n=5)
-    if fixtures.get("errors"):
-        print("API reported errors:", fixtures["errors"])
-    results = fixtures.get("response", [])
-    print(f"GET /fixtures -> {fixtures.get('results', len(results))} fixture(s) returned")
-    for f in results:
+
+    print("\nFull raw response:")
+    print(json.dumps(fixtures, indent=2))
+
+    print("\n--- summary ---")
+    print("league requested:", PREMIER_LEAGUE_ID)
+    print("get:", fixtures.get("get"))
+    print("parameters echoed back by API:", fixtures.get("parameters"))
+    print("errors:", fixtures.get("errors"))
+    print("results:", fixtures.get("results"))
+    print("paging:", fixtures.get("paging"))
+
+    for f in fixtures.get("response", []):
         teams = f["teams"]
         print(f"  {f['fixture']['date']}: {teams['home']['name']} vs {teams['away']['name']}")
+
+    # Diagnostic: query a season that's definitely over (not "current"/live) to
+    # tell apart "free plan doesn't cover live/current-season fixtures" from
+    # "something is broken regardless of season." If this comes back non-zero
+    # while the current-season query above is empty, that's a plan/coverage
+    # restriction on current-season data, not a bug in this client.
+    print("\nDiagnostic: fetching 2023 season fixtures (a season that's long over)...")
+    past = client.get_season_fixtures(season=2023)
+    print("errors:", past.get("errors"), "| results:", past.get("results"), "| paging:", past.get("paging"))
